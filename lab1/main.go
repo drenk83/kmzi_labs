@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"kmzi/cipher"
 )
 
 func main() {
@@ -45,7 +47,7 @@ func encryptOne(instr, inPath, keyPath, outPath string) error {
 	if err != nil {
 		return err
 	}
-	out, err := Encrypt(spec, key, plain)
+	out, err := cipher.Encrypt(spec, key, plain)
 	if err != nil {
 		return err
 	}
@@ -82,7 +84,7 @@ func encryptDir(dir string) error {
 		if err != nil {
 			return err
 		}
-		out, err := Encrypt(spec, key, plain)
+		out, err := cipher.Encrypt(spec, key, plain)
 		if err != nil {
 			return fmt.Errorf("test%d: %w", n, err)
 		}
@@ -105,15 +107,15 @@ func findInstructions(dir string) (string, error) {
 	return matches[0], nil
 }
 
-func readSpec(path string) (Spec, error) {
+func readSpec(path string) (cipher.Spec, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return Spec{}, err
+		return cipher.Spec{}, err
 	}
-	return ParseSpec(string(b))
+	return cipher.ParseSpec(string(b))
 }
 
-func checkExamples(dir string, spec Spec) error {
+func checkExamples(dir string, spec cipher.Spec) error {
 	key, err := os.ReadFile(filepath.Join(dir, "example_key.in"))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -130,7 +132,7 @@ func checkExamples(dir string, spec Spec) error {
 		if err != nil {
 			return err
 		}
-		got, err := Encrypt(spec, key, plain)
+		got, err := cipher.Encrypt(spec, key, plain)
 		if err != nil {
 			return fmt.Errorf("example%d: %w", n, err)
 		}

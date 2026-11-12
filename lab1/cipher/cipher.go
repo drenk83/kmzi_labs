@@ -1,4 +1,5 @@
-package main
+// Package cipher — блочный шифр варианта 8: раунды tfssl, блок и ключ 32 бита.
+package cipher
 
 import (
 	"fmt"
@@ -369,14 +370,36 @@ func encryptBlock(block uint32, rounds []roundKey, sbox [16]byte, A, B int) uint
 	return block
 }
 
-// Encrypt шифрует открытый текст. Ключ — 4 байта, k1 || k2, старший байт первый.
-func Encrypt(spec Spec, key, plain []byte) ([]byte, error) {
+// Block шифрует один 32-битный блок без дополнения.
+type Block struct {
+	rounds []roundKey
+	sbox   [16]byte
+	a, b   int
+}
+
+// NewBlock готовит раундовые ключи. key — 4 байта, k1 || k2, старший байт первый.
+func NewBlock(spec Spec, key []byte) (Block, error) {
 	if len(key) != 4 {
-		return nil, fmt.Errorf("ключ должен быть 4 байта, получено %d", len(key))
+		return Block{}, fmt.Errorf("ключ должен быть 4 байта, получено %d", len(key))
 	}
 	k1 := uint16(key[0])<<8 | uint16(key[1])
 	k2 := uint16(key[2])<<8 | uint16(key[3])
 	rounds, err := expandKeys(spec.Rounds, spec.Schedule, k1, k2)
+	if err != nil {
+		return Block{}, err
+	}
+	return Block{rounds: rounds, sbox: spec.S, a: spec.A, b: spec.B}, nil
+}
+
+// EncryptBlock шифрует один полный блок.
+func (b Block) EncryptBlock(block uint32) uint32 {
+	return encryptBlock(block, b.rounds, b.sbox, b.a, b.b)
+}
+
+// Encrypt шифрует открытый текст в режиме простой замены с дополнением варианта.
+// Ключ — 4 байта, k1 || k2, старший байт первый.
+func Encrypt(spec Spec, key, plain []byte) ([]byte, error) {
+	b, err := NewBlock(spec, key)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +410,7 @@ func Encrypt(spec Spec, key, plain []byte) ([]byte, error) {
 	out := make([]byte, len(padded))
 	for i := 0; i < len(padded); i += 4 {
 		block := uint32(padded[i])<<24 | uint32(padded[i+1])<<16 | uint32(padded[i+2])<<8 | uint32(padded[i+3])
-		c := encryptBlock(block, rounds, spec.S, spec.A, spec.B)
+		c := b.EncryptBlock(block)
 		out[i] = byte(c >> 24)
 		out[i+1] = byte(c >> 16)
 		out[i+2] = byte(c >> 8)

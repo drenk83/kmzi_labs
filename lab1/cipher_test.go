@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"os"
 	"testing"
+
+	"kmzi/cipher"
 )
 
 func TestExamples(t *testing.T) {
-	spec, err := readSpec("instructions_8.in")
-	if err != nil {
-		t.Fatal(err)
-	}
+	spec := readSpecFile(t, "instructions_8.in")
 	key, err := os.ReadFile("example_key.in")
 	if err != nil {
 		t.Fatal(err)
@@ -26,7 +25,7 @@ func TestExamples(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got, err := Encrypt(spec, key, plain)
+		got, err := cipher.Encrypt(spec, key, plain)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -36,33 +35,15 @@ func TestExamples(t *testing.T) {
 	}
 }
 
-func TestSchedule(t *testing.T) {
-	k1 := uint16(0x6012)
-	k2 := uint16(0x39E9)
-	rounds, err := expandKeys("tfssl", "k2 (k1^7941)|(k2^13491),k2 k2<1,k2^29421 k1", k1, k2)
+func readSpecFile(t *testing.T, path string) cipher.Spec {
+	t.Helper()
+	b, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rounds) != 5 {
-		t.Fatalf("раундов %d", len(rounds))
+	spec, err := cipher.ParseSpec(string(b))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if rounds[0].kind != 't' || rounds[0].key != 0 {
-		t.Fatalf("tau: %+v", rounds[0])
-	}
-	if rounds[1].kind != 'f' || rounds[1].key != uint32(k2) {
-		t.Fatalf("feistel key %04x", rounds[1].key)
-	}
-	hi := (k1 ^ 7941) | (k2 ^ 13491)
-	wantS1 := uint32(hi)<<16 | uint32(k2)
-	if rounds[2].key != wantS1 {
-		t.Fatalf("s1 %08x want %08x", rounds[2].key, wantS1)
-	}
-	rot := uint16(k2<<1 | k2>>15)
-	wantS2 := uint32(rot)<<16 | uint32(k2^29421)
-	if rounds[3].key != wantS2 {
-		t.Fatalf("s2 %08x want %08x", rounds[3].key, wantS2)
-	}
-	if rounds[4].kind != 'l' || rounds[4].key != uint32(k1) {
-		t.Fatalf("lai key %04x", rounds[4].key)
-	}
+	return spec
 }
